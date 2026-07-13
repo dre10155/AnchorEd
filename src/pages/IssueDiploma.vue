@@ -213,12 +213,12 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { credentialHash, buildVC, makeIssuerDID } from '../lib/crypto'
 import { withXrpl, submitAndWait, resolveMintedNft, validateMintTx } from '../lib/xrplClient'
 import { makeDownloadUrlForVC, revokeObjectUrl, makeVerifierQR } from '../lib/vc'
-import { createXamanPayload, waitForXamanSignature } from '../lib/xaman'
-import { Client, Wallet, getNFTokenID } from 'xrpl'
+import { useXamanSign } from '../composables/useXamanSign'
+import { Client, Wallet, getNFTokenID, NFTokenMintFlags } from 'xrpl'
 import { Buffer } from 'buffer'
 import XamanSignModal from '../components/XamanSignModal.vue'
 
@@ -269,26 +269,7 @@ interface MintedNFT {
 const mintedNfts = ref<MintedNFT[]>([])
 let lastDownloadUrl = ''
 
-const xaman = reactive<{
-  visible: boolean
-  qrPng: string
-  deeplink: string
-  status: 'pending' | 'signed' | 'rejected' | 'expired' | 'error'
-  errorMessage: string
-  cancelled: boolean
-}>({
-  visible: false,
-  qrPng: '',
-  deeplink: '',
-  status: 'pending',
-  errorMessage: '',
-  cancelled: false,
-})
-
-function cancelXamanSign() {
-  xaman.cancelled = true
-  xaman.visible = false
-}
+const { xaman, cancel: cancelXamanSign, close: closeXaman, signViaXaman } = useXamanSign()
 
 // Privacy model: the full VC (with student PII and salt) lives ONLY in the file/QR
 // the graduate holds. On-chain we anchor the salted hash twice — URI and memo —
@@ -298,7 +279,9 @@ function buildMintTx(_vc: any, hash: string, account: string) {
     TransactionType: 'NFTokenMint',
     Account: account,
     URI: Buffer.from(`vc:sha256:${hash}`).toString('hex'),
-    Flags: 8,
+    // Soulbound: burnable by the issuer (revocation) but NOT transferable —
+    // a diploma is bound to its graduate, never a tradable bearer asset.
+    Flags: NFTokenMintFlags.tfBurnable,
     NFTokenTaxon: 0,
     // Store the salted hash as a memo in the NFT (anchor hash)
     Memos: [
@@ -313,37 +296,11 @@ function buildMintTx(_vc: any, hash: string, account: string) {
   }
 }
 
-/** Mint via Xaman: create a sign request, show the QR, poll until signed, then resolve the NFTokenID. */
+/** Mint via Xaman: QR sign flow, then resolve the NFTokenID from the validated tx. */
 async function mintViaXaman(tx: any): Promise<{ nftId: string; mintTime: string }> {
-  xaman.cancelled = false
-  xaman.status = 'pending'
-  xaman.errorMessage = ''
-  xaman.visible = true
-
-  const payload = await createXamanPayload(tx)
-  xaman.qrPng = payload.qrPng
-  xaman.deeplink = payload.deeplink
-
-  const resolution = await waitForXamanSignature(payload.uuid)
-  if (xaman.cancelled) throw new Error('Signing cancelled.')
-
-  if (resolution.cancelled) {
-    xaman.status = 'rejected'
-    throw new Error('Signature was rejected in Xaman.')
-  }
-  if (resolution.expired) {
-    xaman.status = 'expired'
-    throw new Error('The sign request expired before it was signed.')
-  }
-  if (!resolution.signed || !resolution.txid) {
-    xaman.status = 'error'
-    xaman.errorMessage = 'Xaman did not return a signed transaction.'
-    throw new Error(xaman.errorMessage)
-  }
-
-  xaman.status = 'signed'
-  const minted = await withXrpl((client) => resolveMintedNft(client, resolution.txid!))
-  xaman.visible = false
+  const txid = await signViaXaman(tx)
+  const minted = await withXrpl((client) => resolveMintedNft(client, txid))
+  closeXaman()
   return minted
 }
 

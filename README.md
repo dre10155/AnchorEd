@@ -45,9 +45,9 @@ Create and fund a testnet issuer wallet at the [XRPL faucet](https://xrpl.org/re
 
 ## Roadmap
 
-- [ ] Xaman (XUMM) wallet signing — no seeds in the browser
-- [ ] Hash-only NFT URIs (zero PII on-chain, FERPA-aligned)
-- [ ] Soulbound (non-transferable) diploma NFTs + issuer revocation
+- [x] Xaman (XUMM) wallet signing — no seeds in the browser
+- [x] Hash-only NFT URIs (zero PII on-chain, FERPA-aligned)
+- [x] Soulbound (non-transferable) diploma NFTs + issuer revocation
 - [ ] `did:web` issuer registry — cryptographically bind XRPL addresses to institution domains
 - [ ] Verifier pagination + indexer for high-volume issuers
 - [ ] Merkle-batch anchoring for graduating classes

@@ -40,9 +40,19 @@
             <p class="text-red-700 font-medium">{{ error }}</p>
           </div>
 
-          <div v-if="resultState !== null" class="mt-6 p-6 rounded-lg border-2" :class="resultState ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'">
-            <div class="font-bold text-xl mb-3" :class="resultState ? 'text-green-700' : 'text-red-700'">
-              {{ resultState ? 'Diploma Verified ✅' : 'Diploma Not Verified ❌' }}
+          <div v-if="resultState !== null" class="mt-6 p-6 rounded-lg border-2"
+            :class="{
+              'bg-green-50 border-green-200': resultState === 'valid',
+              'bg-amber-50 border-amber-300': resultState === 'revoked',
+              'bg-red-50 border-red-200': resultState === 'invalid',
+            }">
+            <div class="font-bold text-xl mb-3"
+              :class="{
+                'text-green-700': resultState === 'valid',
+                'text-amber-700': resultState === 'revoked',
+                'text-red-700': resultState === 'invalid',
+              }">
+              {{ resultState === 'valid' ? 'Diploma Verified ✅' : resultState === 'revoked' ? 'Diploma Revoked ⚠️' : 'Diploma Not Verified ❌' }}
             </div>
             <div class="text-sm text-gray-700 mb-4">{{ resultReason }}</div>
             <div v-if="diplomaDetails" class="mt-4 p-4 bg-white rounded-lg border border-gray-200">
@@ -75,7 +85,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { credentialHash } from '../lib/crypto'
-import { Client } from 'xrpl'
+import { Client, getNFTokenID } from 'xrpl'
 import { Buffer } from 'buffer'
 import { QrcodeStream } from 'qrcode-reader-vue3'
 
@@ -83,7 +93,7 @@ const issuerAccount = ref('')
 const diplomaDetails = ref<any>(null)
 const loading = ref(false)
 const error = ref('')
-const resultState = ref<boolean | null>(null)
+const resultState = ref<'valid' | 'revoked' | 'invalid' | null>(null)
 const resultReason = ref('')
 const vcFile = ref<File | null>(null)
 const salt = ref('')
@@ -135,7 +145,7 @@ const handleVerify = async () => {
   const account = cleanAccount(issuerAccount.value)
   if (!account) {
     error.value = 'Issuer account is malformed. Please check the address.'
-    resultState.value = false
+    resultState.value = 'invalid'
     resultReason.value = 'Malformed XRPL account address.'
     loading.value = false
     return
@@ -155,61 +165,54 @@ const handleVerify = async () => {
       limit: 100
     })
     const txs = txsResp.result && Array.isArray(txsResp.result.transactions) ? txsResp.result.transactions : []
-    let found = false
+
+    // 1. Find the mint transaction whose memo carries this credential's anchor hash
     let matchedNftId = ''
-    for (const nft of nfts) {
-      if (!nft.NFTokenID) continue
-      for (const txObj of txs) {
-        const tx = txObj.tx || (txObj as any).tx_json
-        if (tx.TransactionType === 'NFTokenMint' && Array.isArray((txObj.meta as any).AffectedNodes)) {
-          let createdNode = false
-          let validNFToken = false
-          const affectedNodes = (txObj.meta as any).AffectedNodes
-          const createdNodeObj = affectedNodes.find((n: any) => n.CreatedNode && n.CreatedNode.LedgerEntryType === 'NFTokenPage')
-          if (createdNodeObj) {
-            createdNode = true
-            validNFToken = createdNodeObj.CreatedNode && Array.isArray(createdNodeObj.CreatedNode.NewFields.NFTokens) && createdNodeObj.CreatedNode.NewFields.NFTokens.some((t: any) => t.NFToken.NFTokenID === nft.NFTokenID)
-          } else {
-            const modifiedNodeObj = affectedNodes.find((n: any) => n.ModifiedNode && n.ModifiedNode.LedgerEntryType === 'NFTokenPage')
-            if (modifiedNodeObj) {
-              createdNode = true
-              validNFToken = modifiedNodeObj.ModifiedNode && Array.isArray(modifiedNodeObj.ModifiedNode.FinalFields.NFTokens) && modifiedNodeObj.ModifiedNode.FinalFields.NFTokens.some((t: any) => t.NFToken.NFTokenID === nft.NFTokenID)
-            }
+    let mintDate = ''
+    for (const txObj of txs) {
+      const tx = txObj.tx || (txObj as any).tx_json
+      if (!tx || tx.TransactionType !== 'NFTokenMint' || !Array.isArray(tx.Memos)) continue
+      for (const memoObj of tx.Memos) {
+        try {
+          const memo = JSON.parse(Buffer.from(memoObj.Memo.MemoData, 'hex').toString())
+          if (memo.hash === hash.value) {
+            matchedNftId = getNFTokenID(txObj.meta as any) || ''
+            mintDate = (txObj as any).close_time_iso || ''
+            break
           }
-          if (createdNode && validNFToken) {
-            if (Array.isArray(tx.Memos)) {
-              for (const memoObj of tx.Memos) {
-                try {
-                  const memoData = Buffer.from(memoObj.Memo.MemoData, 'hex').toString()
-                  const memo = JSON.parse(memoData)
-                  if (memo.hash === hash.value) {
-                    // Second binding: NFTs minted with the hash-anchor URI format
-                    // must carry the same hash there too (legacy URIs pass on memo alone)
-                    const uriStr = nft.URI ? Buffer.from(nft.URI, 'hex').toString() : ''
-                    if (uriStr.startsWith('vc:sha256:') && uriStr !== `vc:sha256:${hash.value}`) continue
-                    found = true
-                    matchedNftId = nft.NFTokenID
-                    break
-                  }
-                } catch {}
-              }
-            }
-          }
-        }
-        if (found) break
+        } catch {}
       }
-      if (found) break
+      if (matchedNftId) break
     }
-    if (found) {
-      resultState.value = true
-      resultReason.value = `Match found: The diploma is authentic and anchored on XRPL. NFT ID: ${matchedNftId}`
-    } else {
-      resultState.value = false
+
+    if (!matchedNftId) {
+      resultState.value = 'invalid'
       resultReason.value = 'No NFT memo found with this anchor hash.'
+      return
     }
+
+    // 2. Check whether the matched NFT still exists — burned by the issuer means revoked
+    const liveNft = nfts.find((n: any) => n.NFTokenID === matchedNftId)
+    if (!liveNft) {
+      resultState.value = 'revoked'
+      resultReason.value = `This diploma was issued${mintDate ? ` on ${new Date(mintDate).toLocaleDateString()}` : ''} but has since been REVOKED by the issuer. NFT ID: ${matchedNftId}`
+      return
+    }
+
+    // 3. Second binding: NFTs minted with the hash-anchor URI format must carry
+    // the same hash there too (legacy URIs pass on memo alone)
+    const uriStr = liveNft.URI ? Buffer.from(liveNft.URI, 'hex').toString() : ''
+    if (uriStr.startsWith('vc:sha256:') && uriStr !== `vc:sha256:${hash.value}`) {
+      resultState.value = 'invalid'
+      resultReason.value = 'On-ledger URI anchor does not match this credential.'
+      return
+    }
+
+    resultState.value = 'valid'
+    resultReason.value = `Match found: The diploma is authentic and anchored on XRPL. NFT ID: ${matchedNftId}`
   } catch (err: any) {
     error.value = 'Error verifying NFT: ' + err.message
-    resultState.value = false
+    resultState.value = 'invalid'
     resultReason.value = 'Verification failed due to an error.'
   } finally {
     loading.value = false

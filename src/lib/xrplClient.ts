@@ -74,23 +74,19 @@ export function validateMintTx(tx: any): void {
 }
 
 /**
- * After a NFTokenMint has been signed and submitted out-of-band (e.g. via Xaman),
- * poll for the validated transaction and extract the minted NFTokenID + mint time.
+ * Poll for a transaction that was signed and submitted out-of-band (e.g. via Xaman)
+ * until it appears validated on the ledger; returns the tx result.
  */
-export async function resolveMintedNft(
+export async function waitForValidatedTx(
   client: Client,
   txHash: string,
   { maxAttempts = 15, intervalMs = 2000 }: { maxAttempts?: number; intervalMs?: number } = {}
-): Promise<{ nftId: string; mintTime: string }> {
+): Promise<any> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const txResp = await client.request({ command: 'tx', transaction: txHash })
       const result = txResp.result as any
-      if (result.validated) {
-        const nftId = getNFTokenID(result.meta)
-        if (!nftId) throw new Error('Transaction validated but no NFTokenID was found in its metadata.')
-        return { nftId, mintTime: result.close_time_iso || '' }
-      }
+      if (result.validated) return result
     } catch (err: any) {
       if (!err?.data?.error?.includes('txnNotFound') && !err?.message?.includes('txnNotFound')) {
         throw err
@@ -100,4 +96,12 @@ export async function resolveMintedNft(
     await new Promise((resolve) => setTimeout(resolve, intervalMs))
   }
   throw new Error('Timed out waiting for the signed transaction to validate on the ledger.')
+}
+
+/** Wait for a validated NFTokenMint and extract the minted NFTokenID + mint time. */
+export async function resolveMintedNft(client: Client, txHash: string): Promise<{ nftId: string; mintTime: string }> {
+  const result = await waitForValidatedTx(client, txHash)
+  const nftId = getNFTokenID(result.meta)
+  if (!nftId) throw new Error('Transaction validated but no NFTokenID was found in its metadata.')
+  return { nftId, mintTime: result.close_time_iso || '' }
 }

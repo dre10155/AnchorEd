@@ -12,6 +12,7 @@ import { RouterLink, RouterView } from 'vue-router'
         </RouterLink>
         <div class="flex items-center gap-6">
           <RouterLink to="/issue" class="text-gray-300 hover:text-white transition-colors font-medium">Issue</RouterLink>
+          <RouterLink to="/revoke" class="text-gray-300 hover:text-white transition-colors font-medium">Revoke</RouterLink>
           <RouterLink to="/verify" class="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium">Verify</RouterLink>
         </div>
       </nav>

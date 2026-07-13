@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../pages/Home.vue'
 import IssueDiploma from '../pages/IssueDiploma.vue'
 import VerifyDiploma from '../pages/VerifyDiploma.vue'
+import RevokeDiploma from '../pages/RevokeDiploma.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -20,6 +21,11 @@ const router = createRouter({
       path: '/verify',
       name: 'verify',
       component: VerifyDiploma
+    },
+    {
+      path: '/revoke',
+      name: 'revoke',
+      component: RevokeDiploma
     }
   ],
   scrollBehavior() {
