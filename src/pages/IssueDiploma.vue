@@ -14,6 +14,9 @@
           <p class="text-xl text-gray-300 max-w-2xl mx-auto">
             Anchor verifiable diploma credentials on the XRP Ledger
           </p>
+          <div v-if="devSeedMode" class="inline-block mt-4 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-300 text-xs font-medium">
+            Dev seed mode — local signing, testnet only
+          </div>
         </div>
 
         <div v-if="!mintMode" class="flex gap-4 justify-center mb-12">
@@ -43,13 +46,16 @@
               <input v-model.number="year" type="number" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all" required min="1900" max="2100" />
             </div>
             <div class="pt-4 border-t border-gray-200">
-              <label class="block font-medium text-brand-black text-sm mb-2">Issuer Account (dev only)</label>
+              <label class="block font-medium text-brand-black text-sm mb-2">Issuer Account</label>
               <input v-model="issuerAccount" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="r..." />
             </div>
-            <div>
+            <div v-if="devSeedMode">
               <label class="block font-medium text-brand-black text-sm mb-2">Issuer Seed (dev only)</label>
               <input v-model="issuerSeed" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="s..." />
             </div>
+            <p v-else class="text-xs text-gray-500">
+              You'll sign this mint with the Xaman app — no seed is ever entered here.
+            </p>
             <button type="submit" :disabled="loading" class="w-full px-8 py-3 bg-primary-blue text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-lg shadow-blue-500/30 disabled:bg-gray-400 disabled:shadow-none disabled:cursor-not-allowed">
               {{ loading ? 'Issuing...' : 'Issue Diploma NFT' }}
             </button>
@@ -78,78 +84,85 @@
           </div>
         </div>
         <div v-if="mintMode === 'batch'" class="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
-          <form @submit.prevent class="mb-8 space-y-6">
-            <div>
-              <label class="block font-medium text-brand-black text-sm mb-2">Issuer Account (dev only)</label>
-              <input v-model="issuerAccount" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="r..." />
-            </div>
-            <div>
-              <label class="block font-medium text-brand-black text-sm mb-2">Issuer Seed (dev only)</label>
-              <input v-model="issuerSeed" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="s..." />
-            </div>
-          </form>
+          <div v-if="!devSeedMode" class="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm mb-6">
+            Batch minting requires <span class="font-mono">VITE_DEV_SEED_MODE=true</span> (testnet only) until
+            multi-signature Xaman batch signing is implemented. Each diploma otherwise needs its own individual
+            QR-signed mint — use Single Mint instead.
+          </div>
+          <template v-else>
+            <form @submit.prevent class="mb-8 space-y-6">
+              <div>
+                <label class="block font-medium text-brand-black text-sm mb-2">Issuer Account (dev only)</label>
+                <input v-model="issuerAccount" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="r..." />
+              </div>
+              <div>
+                <label class="block font-medium text-brand-black text-sm mb-2">Issuer Seed (dev only)</label>
+                <input v-model="issuerSeed" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="s..." />
+              </div>
+            </form>
 
-          <div class="border-t border-gray-200 pt-8">
-            <h2 class="text-2xl font-bold text-brand-black mb-6">Bulk Upload / Batch Issue</h2>
-            <div class="space-y-4">
-              <input
-                type="file"
-                accept=".csv,.json"
-                @change="handleBulkFileChange"
-                class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-blue file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-all file:duration-200"
-              />
-              <button
-                @click="handleBulkSubmit"
-                :disabled="bulkLoading || !bulkFile"
-                class="w-full px-8 py-3 bg-primary-blue text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-lg shadow-blue-500/30 disabled:bg-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
-              >
-                {{ bulkLoading ? 'Issuing in Batch...' : 'Bulk Issue Diplomas' }}
-              </button>
-            </div>
+            <div class="border-t border-gray-200 pt-8">
+              <h2 class="text-2xl font-bold text-brand-black mb-6">Bulk Upload / Batch Issue</h2>
+              <div class="space-y-4">
+                <input
+                  type="file"
+                  accept=".csv,.json"
+                  @change="handleBulkFileChange"
+                  class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-blue file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-all file:duration-200"
+                />
+                <button
+                  @click="handleBulkSubmit"
+                  :disabled="bulkLoading || !bulkFile"
+                  class="w-full px-8 py-3 bg-primary-blue text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-lg shadow-blue-500/30 disabled:bg-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
+                >
+                  {{ bulkLoading ? 'Issuing in Batch...' : 'Bulk Issue Diplomas' }}
+                </button>
+              </div>
 
-            <div v-if="bulkError" class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p class="text-red-700 font-medium">{{ bulkError }}</p>
-            </div>
+              <div v-if="bulkError" class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p class="text-red-700 font-medium">{{ bulkError }}</p>
+              </div>
 
-            <div v-if="bulkResults.length" class="mt-8">
-              <h3 class="text-xl font-bold text-brand-black mb-4">Results:</h3>
-              <div class="overflow-x-auto rounded-lg border border-gray-200">
-                <table class="w-full text-sm bg-white">
-                  <thead>
-                    <tr class="bg-gradient-to-r from-primary-blue to-blue-600 text-white">
-                      <th class="px-4 py-3 text-left font-semibold">#</th>
-                      <th class="px-4 py-3 text-left font-semibold">Student</th>
-                      <th class="px-4 py-3 text-left font-semibold">NFT ID</th>
-                      <th class="px-4 py-3 text-left font-semibold">Download</th>
-                      <th class="px-4 py-3 text-left font-semibold">QR</th>
-                      <th class="px-4 py-3 text-left font-semibold">Error</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="r in bulkResults" :key="r.index" class="border-t border-gray-200 hover:bg-gray-50 transition-colors">
-                      <td class="px-4 py-3">{{ r.index }}</td>
-                      <td class="px-4 py-3 font-medium text-gray-900">{{ r.studentName }}</td>
-                      <td class="px-4 py-3">
-                        <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{{ r.nftId }}</span>
-                      </td>
-                      <td class="px-4 py-3">
-                        <a v-if="r.downloadUrl" :href="r.downloadUrl" download="diploma-vc.json" class="text-primary-blue hover:text-blue-700 font-medium">
-                          Download
-                        </a>
-                      </td>
-                      <td class="px-4 py-3">
-                        <img v-if="r.qr" :src="r.qr" alt="QR" class="w-12 h-12 border-2 border-gray-200 rounded" />
-                        <div v-if="issuerAccount && r.qr" class="text-xs text-gray-600 mt-1">
-                          <span class="font-mono">{{ issuerAccount.substring(0, 8) }}...</span>
-                        </div>
-                      </td>
-                      <td class="px-4 py-3 text-red-600 text-xs">{{ r.error }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div v-if="bulkResults.length" class="mt-8">
+                <h3 class="text-xl font-bold text-brand-black mb-4">Results:</h3>
+                <div class="overflow-x-auto rounded-lg border border-gray-200">
+                  <table class="w-full text-sm bg-white">
+                    <thead>
+                      <tr class="bg-gradient-to-r from-primary-blue to-blue-600 text-white">
+                        <th class="px-4 py-3 text-left font-semibold">#</th>
+                        <th class="px-4 py-3 text-left font-semibold">Student</th>
+                        <th class="px-4 py-3 text-left font-semibold">NFT ID</th>
+                        <th class="px-4 py-3 text-left font-semibold">Download</th>
+                        <th class="px-4 py-3 text-left font-semibold">QR</th>
+                        <th class="px-4 py-3 text-left font-semibold">Error</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="r in bulkResults" :key="r.index" class="border-t border-gray-200 hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3">{{ r.index }}</td>
+                        <td class="px-4 py-3 font-medium text-gray-900">{{ r.studentName }}</td>
+                        <td class="px-4 py-3">
+                          <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{{ r.nftId }}</span>
+                        </td>
+                        <td class="px-4 py-3">
+                          <a v-if="r.downloadUrl" :href="r.downloadUrl" download="diploma-vc.json" class="text-primary-blue hover:text-blue-700 font-medium">
+                            Download
+                          </a>
+                        </td>
+                        <td class="px-4 py-3">
+                          <img v-if="r.qr" :src="r.qr" alt="QR" class="w-12 h-12 border-2 border-gray-200 rounded" />
+                          <div v-if="issuerAccount && r.qr" class="text-xs text-gray-600 mt-1">
+                            <span class="font-mono">{{ issuerAccount.substring(0, 8) }}...</span>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 text-red-600 text-xs">{{ r.error }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
+          </template>
         </div>
         <div v-if="issuerAccount && nftCount !== null" class="mt-12 bg-white rounded-xl shadow-xl p-8 border border-gray-200">
           <h2 class="text-2xl font-bold text-brand-black mb-4">Diplomas Minted by Institution</h2>
@@ -185,16 +198,33 @@
         </div>
       </div>
     </section>
+
+    <XamanSignModal
+      v-if="xaman.visible"
+      title="Sign diploma mint"
+      :qr-png="xaman.qrPng"
+      :deeplink="xaman.deeplink"
+      :status="xaman.status"
+      :error-message="xaman.errorMessage"
+      :allow-cancel="xaman.status === 'pending'"
+      @cancel="cancelXamanSign"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { credentialHash, buildVC, makeIssuerDID } from '../lib/crypto'
-import { withXrpl, submitAndWait } from '../lib/xrplClient'
+import { withXrpl, submitAndWait, resolveMintedNft, validateMintTx } from '../lib/xrplClient'
 import { makeDownloadUrlForVC, revokeObjectUrl, makeVerifierQR } from '../lib/vc'
-import { Client, Wallet } from 'xrpl'
+import { createXamanPayload, waitForXamanSignature } from '../lib/xaman'
+import { Client, Wallet, getNFTokenID } from 'xrpl'
 import { Buffer } from 'buffer'
+import XamanSignModal from '../components/XamanSignModal.vue'
+
+// Local-seed signing is a testnet development convenience only. It is disabled
+// by default; production issuance signs via Xaman so seeds never touch the browser.
+const devSeedMode = import.meta.env.VITE_DEV_SEED_MODE === 'true'
 
 const studentName = ref('')
 const university = ref('')
@@ -208,6 +238,7 @@ const success = ref(false)
 const nftId = ref('')
 const downloadUrl = ref('')
 const qrUrl = ref('')
+const nftMintTime = ref('')
 
 interface BulkResult {
   index: number
@@ -236,12 +267,99 @@ interface MintedNFT {
 }
 
 const mintedNfts = ref<MintedNFT[]>([])
-const nftMintTime = ref('')
 let lastDownloadUrl = ''
 
+const xaman = reactive<{
+  visible: boolean
+  qrPng: string
+  deeplink: string
+  status: 'pending' | 'signed' | 'rejected' | 'expired' | 'error'
+  errorMessage: string
+  cancelled: boolean
+}>({
+  visible: false,
+  qrPng: '',
+  deeplink: '',
+  status: 'pending',
+  errorMessage: '',
+  cancelled: false,
+})
+
+function cancelXamanSign() {
+  xaman.cancelled = true
+  xaman.visible = false
+}
+
+function buildMintTx(vc: any, hash: string, account: string) {
+  return {
+    TransactionType: 'NFTokenMint',
+    Account: account,
+    // Ensure URI is hex and ≤ 256 bytes
+    URI: (() => {
+      const json = JSON.stringify(vc)
+      let buf = Buffer.from(json)
+      if (buf.length > 256) {
+        // Truncate and add a warning, or use a hash if needed
+        buf = buf.slice(0, 256)
+      }
+      return buf.toString('hex')
+    })(),
+    Flags: 8,
+    NFTokenTaxon: 0,
+    // Store the salted hash as a memo in the NFT (anchor hash)
+    Memos: [
+      {
+        Memo: {
+          MemoType: Buffer.from('vc-hash').toString('hex'),
+          // MemoData contains only the salted hash as anchor
+          MemoData: Buffer.from(JSON.stringify({ hash })).toString('hex'),
+        }
+      }
+    ]
+  }
+}
+
+/** Mint via Xaman: create a sign request, show the QR, poll until signed, then resolve the NFTokenID. */
+async function mintViaXaman(tx: any): Promise<{ nftId: string; mintTime: string }> {
+  xaman.cancelled = false
+  xaman.status = 'pending'
+  xaman.errorMessage = ''
+  xaman.visible = true
+
+  const payload = await createXamanPayload(tx)
+  xaman.qrPng = payload.qrPng
+  xaman.deeplink = payload.deeplink
+
+  const resolution = await waitForXamanSignature(payload.uuid)
+  if (xaman.cancelled) throw new Error('Signing cancelled.')
+
+  if (resolution.cancelled) {
+    xaman.status = 'rejected'
+    throw new Error('Signature was rejected in Xaman.')
+  }
+  if (resolution.expired) {
+    xaman.status = 'expired'
+    throw new Error('The sign request expired before it was signed.')
+  }
+  if (!resolution.signed || !resolution.txid) {
+    xaman.status = 'error'
+    xaman.errorMessage = 'Xaman did not return a signed transaction.'
+    throw new Error(xaman.errorMessage)
+  }
+
+  xaman.status = 'signed'
+  const minted = await withXrpl((client) => resolveMintedNft(client, resolution.txid!))
+  xaman.visible = false
+  return minted
+}
+
 function validateIssuer() {
-  if (!issuerAccount.value.startsWith('r') || !issuerSeed.value.startsWith('s')) {
-    error.value = 'Issuer account must start with r and seed with s.'
+  if (!issuerAccount.value.startsWith('r')) {
+    error.value = 'Issuer account must start with r.'
+    return false
+  }
+  if (devSeedMode && !issuerSeed.value.startsWith('s')) {
+    error.value = 'Issuer seed must start with s.'
     return false
   }
   return true
@@ -257,6 +375,7 @@ async function handleSubmit() {
   error.value = ''
   success.value = false
   nftId.value = ''
+  nftMintTime.value = ''
   loading.value = true
   if (lastDownloadUrl) revokeObjectUrl(lastDownloadUrl)
   downloadUrl.value = ''
@@ -276,76 +395,29 @@ async function handleSubmit() {
     // 2. Hash
     const hash = await credentialHash(vc, salt)
     // 3. Mint NFT with memo
-    const wallet = Wallet.fromSeed(issuerSeed.value)
-    await withXrpl(async (client) => {
-      const tx = {
-        TransactionType: 'NFTokenMint',
-        Account: issuerAccount.value,
-        // Ensure URI is hex and ≤ 256 bytes
-        URI: (() => {
-          const json = JSON.stringify(vc)
-          let buf = Buffer.from(json)
-          if (buf.length > 256) {
-            // Truncate and add a warning, or use a hash if needed
-            buf = buf.slice(0, 256)
-          }
-          return buf.toString('hex')
-        })(),
-        Flags: 8,
-        NFTokenTaxon: 0,
-        // Store the salted hash as a memo in the NFT (anchor hash)
-        Memos: [
-          {
-            Memo: {
-              MemoType: Buffer.from('vc-hash').toString('hex'),
-              // MemoData contains only the salted hash as anchor
-              MemoData: Buffer.from(JSON.stringify({ hash })).toString('hex'),
-            }
-          }
-        ]
-      }
-      const result = await submitAndWait(client, wallet, tx)
-      if (result.result && result.result.meta && typeof result.result.meta === 'object' && 'nftoken_id' in result.result.meta) {
-        nftId.value = (result.result.meta as any).nftoken_id
-      } else {
-        const nodes = (result.result.meta as any)?.AffectedNodes || []
-        const minted = nodes.find((n: any) => n.CreatedNode && n.CreatedNode.LedgerEntryType === 'NFToken')
-        nftId.value = minted ? minted.CreatedNode.NewFields.NFTokenID : '(unknown)'
-      }
-      if (nftId.value && nftId.value !== '(unknown)') {
-        const txsResp = await client.request({
-          command: 'account_tx',
-          account: issuerAccount.value,
-          limit: 100
-        })
-        const txs = txsResp.result && Array.isArray(txsResp.result.transactions) ? txsResp.result.transactions : []
-        let mintTx: string | null = null
-        for (const txObj of txs) {
-          const tx = txObj.tx || (txObj as any).tx_json
-          if (tx && tx.TransactionType === 'NFTokenMint' && typeof txObj.meta === 'object' && 'AffectedNodes' in txObj.meta) {
-            const affectedNodes = (txObj.meta as any).AffectedNodes
-            if (Array.isArray(affectedNodes)) {
-              let createdNode = affectedNodes.find((n: any) => n.CreatedNode && n.CreatedNode.LedgerEntryType === 'NFToken')
-              if (createdNode && createdNode.CreatedNode.NewFields.NFTokenID === nftId.value) {
-                mintTx = (txObj as any).close_time_iso
-                break
-              }
-            }
-          }
-        }
-        if (mintTx) {
-          nftMintTime.value = new Date(mintTx).toLocaleString()
-        } else {
-          nftMintTime.value = ''
-        }
-      } else {
-        nftMintTime.value = ''
-      }
-    })
+    const tx = buildMintTx(vc, hash, issuerAccount.value)
+    validateMintTx(tx)
+
+    if (devSeedMode) {
+      const wallet = Wallet.fromSeed(issuerSeed.value)
+      await withXrpl(async (client) => {
+        const result = await submitAndWait(client, wallet, tx)
+        const meta = result.result?.meta
+        nftId.value = getNFTokenID(meta as any) || '(unknown)'
+        nftMintTime.value = (result.result as any)?.close_time_iso
+          ? new Date((result.result as any).close_time_iso).toLocaleString()
+          : ''
+      })
+    } else {
+      const minted = await mintViaXaman(tx)
+      nftId.value = minted.nftId
+      nftMintTime.value = minted.mintTime ? new Date(minted.mintTime).toLocaleString() : ''
+    }
+
     // 4. Download link and QR
     lastDownloadUrl = makeDownloadUrlForVC({ vc, salt })
     downloadUrl.value = lastDownloadUrl
-    qrUrl.value = await makeVerifierQR({ salt, hash, subject, issuerAccount:issuerAccount.value })
+    qrUrl.value = await makeVerifierQR({ salt, hash, subject, issuerAccount: issuerAccount.value })
     success.value = true
   } catch (e: any) {
     error.value = e?.message || String(e)
@@ -395,36 +467,12 @@ async function handleBulkSubmit() {
         const vc = await buildVC({ issuer, subject, claim: {}, salt })
         const hash = await credentialHash(vc, salt)
         const wallet = Wallet.fromSeed(issuerSeed.value)
+        const tx = buildMintTx(vc, hash, issuerAccount.value)
+        validateMintTx(tx)
         let nftId = ''
         await withXrpl(async (client) => {
-          const tx = {
-            TransactionType: 'NFTokenMint',
-            Account: issuerAccount.value,
-            URI: (() => {
-              const json = JSON.stringify(vc)
-              let buf = Buffer.from(json)
-              if (buf.length > 256) buf = buf.slice(0, 256)
-              return buf.toString('hex')
-            })(),
-            Flags: 8,
-            NFTokenTaxon: 0,
-            Memos: [
-              {
-                Memo: {
-                  MemoType: Buffer.from('vc-hash').toString('hex'),
-                  MemoData: Buffer.from(JSON.stringify({ hash })).toString('hex'),
-                }
-              }
-            ]
-          }
           const result = await submitAndWait(client, wallet, tx)
-          if (result.result && result.result.meta && typeof result.result.meta === 'object' && 'nftoken_id' in result.result.meta) {
-            nftId = (result.result.meta as any).nftoken_id
-          } else {
-            const nodes = (result.result.meta as any)?.AffectedNodes || []
-            const minted = nodes.find((n: any) => n.CreatedNode && n.CreatedNode.LedgerEntryType === 'NFToken')
-            nftId = minted ? minted.CreatedNode.NewFields.NFTokenID : '(unknown)'
-          }
+          nftId = getNFTokenID(result.result?.meta as any) || '(unknown)'
         })
         const downloadUrl = makeDownloadUrlForVC({ vc, salt })
         const qr = await makeVerifierQR({ salt, hash, subject, issuerAccount: issuerAccount.value })
