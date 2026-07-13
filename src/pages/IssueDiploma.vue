@@ -290,20 +290,14 @@ function cancelXamanSign() {
   xaman.visible = false
 }
 
-function buildMintTx(vc: any, hash: string, account: string) {
+// Privacy model: the full VC (with student PII and salt) lives ONLY in the file/QR
+// the graduate holds. On-chain we anchor the salted hash twice — URI and memo —
+// so nothing personal ever touches the public ledger (FERPA-safe).
+function buildMintTx(_vc: any, hash: string, account: string) {
   return {
     TransactionType: 'NFTokenMint',
     Account: account,
-    // Ensure URI is hex and ≤ 256 bytes
-    URI: (() => {
-      const json = JSON.stringify(vc)
-      let buf = Buffer.from(json)
-      if (buf.length > 256) {
-        // Truncate and add a warning, or use a hash if needed
-        buf = buf.slice(0, 256)
-      }
-      return buf.toString('hex')
-    })(),
+    URI: Buffer.from(`vc:sha256:${hash}`).toString('hex'),
     Flags: 8,
     NFTokenTaxon: 0,
     // Store the salted hash as a memo in the NFT (anchor hash)

@@ -183,6 +183,10 @@ const handleVerify = async () => {
                   const memoData = Buffer.from(memoObj.Memo.MemoData, 'hex').toString()
                   const memo = JSON.parse(memoData)
                   if (memo.hash === hash.value) {
+                    // Second binding: NFTs minted with the hash-anchor URI format
+                    // must carry the same hash there too (legacy URIs pass on memo alone)
+                    const uriStr = nft.URI ? Buffer.from(nft.URI, 'hex').toString() : ''
+                    if (uriStr.startsWith('vc:sha256:') && uriStr !== `vc:sha256:${hash.value}`) continue
                     found = true
                     matchedNftId = nft.NFTokenID
                     break
