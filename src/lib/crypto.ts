@@ -30,9 +30,14 @@ export async function credentialHash(credential: any, salt: string): Promise<str
   return await sha256Hex(salt + canonical);
 }
 
-export async function makeIssuerDID(issuer: string): Promise<string> {
-  const hash = await sha256Hex(issuer);
-  return `did:web:${hash}`;
+/**
+ * Issuer identifier for the VC. With a domain we emit a spec-compliant did:web
+ * (resolvable at https://<domain>/.well-known/did.json); without one we fall
+ * back to the raw XRPL address.
+ */
+export function makeIssuerDID(issuerAccount: string, domain?: string): string {
+  const d = domain?.trim().toLowerCase();
+  return d ? `did:web:${d}` : issuerAccount;
 }
 
 interface BuildVCParams {

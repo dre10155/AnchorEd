@@ -49,6 +49,14 @@
               <label class="block font-medium text-brand-black text-sm mb-2">Issuer Account</label>
               <input v-model="issuerAccount" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="r..." />
             </div>
+            <div>
+              <label class="block font-medium text-brand-black text-sm mb-2">Institution Domain (optional, for did:web identity)</label>
+              <input v-model="issuerDomain" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" placeholder="registrar.university.edu" />
+              <p class="text-xs text-gray-500 mt-1">
+                Verified institutions show a green "issued by" badge.
+                <router-link to="/identity" class="text-primary-blue hover:text-blue-700 font-medium">Set up your identity →</router-link>
+              </p>
+            </div>
             <div v-if="devSeedMode">
               <label class="block font-medium text-brand-black text-sm mb-2">Issuer Seed (dev only)</label>
               <input v-model="issuerSeed" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="s..." />
@@ -231,6 +239,7 @@ const university = ref('')
 const degree = ref('')
 const year = ref(new Date().getFullYear())
 const issuerAccount = ref('')
+const issuerDomain = ref('')
 const issuerSeed = ref('')
 const loading = ref(false)
 const error = ref('')
@@ -339,7 +348,7 @@ async function handleSubmit() {
 
   try {
     // 1. Build VC
-    const issuer = await makeIssuerDID(issuerAccount.value)
+    const issuer = makeIssuerDID(issuerAccount.value, issuerDomain.value)
     const subject = { studentName: studentName.value, university: university.value, degree: degree.value, year: year.value, issuerAccount: issuerAccount.value }
     const salt = randomSalt()
     const vc = await buildVC({ issuer, subject, claim: {}, salt })
@@ -412,7 +421,7 @@ async function handleBulkSubmit() {
     const results: BulkResult[] = []
     for (const [i, rec] of records.entries()) {
       try {
-        const issuer = await makeIssuerDID(issuerAccount.value)
+        const issuer = makeIssuerDID(issuerAccount.value, issuerDomain.value)
         const subject = { studentName: rec.studentName, university: rec.university, degree: rec.degree, year: rec.year }
         const salt = randomSalt()
         const vc = await buildVC({ issuer, subject, claim: {}, salt })

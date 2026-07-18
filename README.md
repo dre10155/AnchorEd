@@ -50,10 +50,24 @@ Create and fund a testnet issuer wallet at the [XRPL faucet](https://xrpl.org/re
 - [x] Xaman (XUMM) wallet signing — no seeds in the browser
 - [x] Hash-only NFT URIs (zero PII on-chain, FERPA-aligned)
 - [x] Soulbound (non-transferable) diploma NFTs + issuer revocation
-- [ ] `did:web` issuer registry — cryptographically bind XRPL addresses to institution domains
+- [x] `did:web` issuer identity — cryptographically bind XRPL addresses to institution domains
 - [ ] Verifier pagination + indexer for high-volume issuers
 - [ ] Merkle-batch anchoring for graduating classes
 - [ ] Verification API for ATS / licensing-board integration
+
+## Institution onboarding (did:web identity)
+
+AnchorEd distinguishes **anchored** credentials (hash matches an NFT) from **verified**
+credentials (the issuing wallet provably belongs to a real institution). To get the green
+"issued by your-domain.edu" badge, an institution completes a two-way handshake:
+
+1. **Domain → wallet:** host a DID document at `https://<your-domain>/.well-known/did.json`
+   listing your official XRPL issuing address (the `/identity` page generates this file).
+2. **Wallet → domain:** sign one `AccountSet` transaction (via Xaman, on the `/identity`
+   page) setting your wallet's on-ledger `Domain` field to the same domain.
+
+Impersonating an institution now requires compromising its actual website *and* its
+wallet keys. Either side can be checked independently by anyone, forever.
 
 ## Security model (current, testnet)
 

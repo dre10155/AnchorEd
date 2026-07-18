@@ -42,17 +42,20 @@
 
           <div v-if="resultState !== null" class="mt-6 p-6 rounded-lg border-2"
             :class="{
-              'bg-green-50 border-green-200': resultState === 'valid',
-              'bg-amber-50 border-amber-300': resultState === 'revoked',
+              'bg-green-50 border-green-200': resultState === 'verified',
+              'bg-amber-50 border-amber-300': resultState === 'anchored' || resultState === 'revoked',
               'bg-red-50 border-red-200': resultState === 'invalid',
             }">
             <div class="font-bold text-xl mb-3"
               :class="{
-                'text-green-700': resultState === 'valid',
-                'text-amber-700': resultState === 'revoked',
+                'text-green-700': resultState === 'verified',
+                'text-amber-700': resultState === 'anchored' || resultState === 'revoked',
                 'text-red-700': resultState === 'invalid',
               }">
-              {{ resultState === 'valid' ? 'Diploma Verified ✅' : resultState === 'revoked' ? 'Diploma Revoked ⚠️' : 'Diploma Not Verified ❌' }}
+              {{ resultState === 'verified' ? `Diploma Verified ✅ — issued by ${issuerDomain}`
+                : resultState === 'anchored' ? 'Anchored — Issuer Unverified ⚠️'
+                : resultState === 'revoked' ? 'Diploma Revoked ⚠️'
+                : 'Diploma Not Verified ❌' }}
             </div>
             <div class="text-sm text-gray-700 mb-4">{{ resultReason }}</div>
             <div v-if="diplomaDetails" class="mt-4 p-4 bg-white rounded-lg border border-gray-200">
@@ -85,6 +88,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { credentialHash } from '../lib/crypto'
+import { checkDidListsAddress, decodeHexDomain } from '../lib/did'
 import { Client, getNFTokenID } from 'xrpl'
 import { Buffer } from 'buffer'
 import { QrcodeStream } from 'qrcode-reader-vue3'
@@ -93,8 +97,9 @@ const issuerAccount = ref('')
 const diplomaDetails = ref<any>(null)
 const loading = ref(false)
 const error = ref('')
-const resultState = ref<'valid' | 'revoked' | 'invalid' | null>(null)
+const resultState = ref<'verified' | 'anchored' | 'revoked' | 'invalid' | null>(null)
 const resultReason = ref('')
+const issuerDomain = ref('')
 const vcFile = ref<File | null>(null)
 const salt = ref('')
 const hash = ref('')
@@ -208,8 +213,29 @@ const handleVerify = async () => {
       return
     }
 
-    resultState.value = 'valid'
-    resultReason.value = `Match found: The diploma is authentic and anchored on XRPL. NFT ID: ${matchedNftId}`
+    // 4. Issuer identity — two-way did:web handshake:
+    //    wallet → domain (on-ledger Domain field) and domain → wallet (did.json)
+    let identityVerified = false
+    issuerDomain.value = ''
+    try {
+      const info = await client.request({ command: 'account_info', account })
+      const domain = decodeHexDomain((info.result as any).account_data?.Domain)
+      if (domain) {
+        issuerDomain.value = domain
+        const didCheck = await checkDidListsAddress(domain, account)
+        identityVerified = Boolean(didCheck.ok && didCheck.listsAddress)
+      }
+    } catch {}
+
+    if (identityVerified) {
+      resultState.value = 'verified'
+      resultReason.value = `Authentic credential issued by ${issuerDomain.value} — institution identity confirmed via did:web handshake. NFT ID: ${matchedNftId}`
+    } else {
+      resultState.value = 'anchored'
+      resultReason.value = issuerDomain.value
+        ? `Hash is anchored on XRPL (NFT ID: ${matchedNftId}), but ${issuerDomain.value} did not confirm this wallet in its did.json — issuer identity UNVERIFIED.`
+        : `Hash is anchored on XRPL (NFT ID: ${matchedNftId}), but the issuer wallet has no domain set — issuer identity UNVERIFIED. Anyone can create a wallet; treat with caution.`
+    }
   } catch (err: any) {
     error.value = 'Error verifying NFT: ' + err.message
     resultState.value = 'invalid'

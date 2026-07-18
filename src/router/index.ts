@@ -3,6 +3,7 @@ import Home from '../pages/Home.vue'
 import IssueDiploma from '../pages/IssueDiploma.vue'
 import VerifyDiploma from '../pages/VerifyDiploma.vue'
 import RevokeDiploma from '../pages/RevokeDiploma.vue'
+import InstitutionIdentity from '../pages/InstitutionIdentity.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -26,6 +27,11 @@ const router = createRouter({
       path: '/revoke',
       name: 'revoke',
       component: RevokeDiploma
+    },
+    {
+      path: '/identity',
+      name: 'identity',
+      component: InstitutionIdentity
     }
   ],
   scrollBehavior() {
