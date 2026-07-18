@@ -2,6 +2,8 @@
 
 **Tamper-proof academic credentials, anchored on the XRP Ledger.**
 
+**🔗 Live app: [anchor-ed.vercel.app](https://anchor-ed.vercel.app)** · Beta on XRPL Testnet
+
 Credential fraud is a public-safety crisis. In 2023, *Operation Nightingale* uncovered ~7,600
 fake nursing diplomas sold in Florida — fraudulent nurses reached real patients. Diploma mills
 sell an estimated 100,000+ fake degrees in the US every year, while legitimate verification
