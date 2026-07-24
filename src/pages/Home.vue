@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen pt-20">
-    <section class="relative py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section class="relative py-16 sm:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
       <div class="absolute inset-0 bg-gradient-to-br from-brand-black via-gray-900 to-brand-black"></div>
 
       <div class="absolute inset-0">

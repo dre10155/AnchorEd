@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen pt-20">
-    <section class="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section class="relative py-12 sm:py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       <div class="absolute inset-0 bg-gradient-to-br from-brand-black via-gray-900 to-brand-black"></div>
 
       <div class="absolute inset-0">
@@ -9,7 +9,7 @@
       </div>
 
       <div class="max-w-4xl mx-auto relative z-10">
-        <div class="text-center mb-12">
+        <div class="text-center mb-8 sm:mb-12">
           <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">Institution Identity</h1>
           <p class="text-xl text-gray-300 max-w-2xl mx-auto">
             Bind your XRPL wallet to your domain so verifiers see
@@ -18,7 +18,7 @@
           </p>
         </div>
 
-        <div class="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
+        <div class="bg-white rounded-xl shadow-xl p-5 sm:p-8 border border-gray-200">
           <div class="space-y-6">
             <div>
               <label class="block font-medium text-brand-black mb-2">Institution Domain</label>
@@ -32,11 +32,11 @@
 
           <div class="mt-8 space-y-6">
             <!-- Step 1 -->
-            <div class="border border-gray-200 rounded-lg p-6">
+            <div class="border border-gray-200 rounded-lg p-4 sm:p-6">
               <div class="font-bold text-brand-black mb-2">Step 1 — Publish your DID document</div>
               <p class="text-sm text-gray-600 mb-4">
                 Download this file and host it on your website at
-                <span class="font-mono bg-gray-100 px-2 py-1 rounded text-xs">https://{{ domain || 'your-domain' }}/.well-known/did.json</span>.
+                <span class="font-mono bg-gray-100 px-2 py-1 rounded text-xs break-all">https://{{ domain || 'your-domain' }}/.well-known/did.json</span>.
                 Only someone who controls your domain can do this — that's the point.
               </p>
               <button @click="downloadDidJson" :disabled="!ready" class="px-6 py-2 bg-primary-blue text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm disabled:bg-gray-400 disabled:cursor-not-allowed">
@@ -45,7 +45,7 @@
             </div>
 
             <!-- Step 2 -->
-            <div class="border border-gray-200 rounded-lg p-6">
+            <div class="border border-gray-200 rounded-lg p-4 sm:p-6">
               <div class="font-bold text-brand-black mb-2">Step 2 — Point your wallet at your domain</div>
               <p class="text-sm text-gray-600 mb-4">
                 Sign one transaction setting your wallet's on-ledger <span class="font-mono text-xs">Domain</span> field.
@@ -54,11 +54,11 @@
               <button @click="signDomainSet" :disabled="!ready || signing" class="px-6 py-2 bg-primary-blue text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm disabled:bg-gray-400 disabled:cursor-not-allowed">
                 {{ signing ? 'Waiting for signature…' : 'Sign with Xaman' }}
               </button>
-              <span v-if="domainSetMsg" class="ml-3 text-sm text-green-700 font-medium">{{ domainSetMsg }}</span>
+              <span v-if="domainSetMsg" class="block sm:inline sm:ml-3 mt-2 sm:mt-0 text-sm text-green-700 font-medium">{{ domainSetMsg }}</span>
             </div>
 
             <!-- Step 3 -->
-            <div class="border border-gray-200 rounded-lg p-6">
+            <div class="border border-gray-200 rounded-lg p-4 sm:p-6">
               <div class="font-bold text-brand-black mb-2">Step 3 — Check your handshake</div>
               <p class="text-sm text-gray-600 mb-4">
                 Once both are in place, verify the two-way binding.

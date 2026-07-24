@@ -1,13 +1,13 @@
 <template>
   <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div class="bg-white p-6 rounded-xl shadow-2xl relative max-w-sm w-full text-center">
+    <div class="bg-white p-5 sm:p-6 rounded-xl shadow-2xl relative w-full max-w-sm text-center">
       <button v-if="allowCancel" @click="$emit('cancel')" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl font-bold w-8 h-8 flex items-center justify-center">
         ✕
       </button>
       <h3 class="text-xl font-bold text-brand-black mb-2">{{ title }}</h3>
       <p class="text-sm text-gray-500 mb-4">Scan with the Xaman app to sign</p>
 
-      <img v-if="qrPng && status === 'pending'" :src="qrPng" alt="Xaman sign QR" class="w-56 h-56 mx-auto border-4 border-gray-200 rounded-lg" />
+      <img v-if="qrPng && status === 'pending'" :src="qrPng" alt="Xaman sign QR" class="w-48 h-48 sm:w-56 sm:h-56 mx-auto border-4 border-gray-200 rounded-lg" />
 
       <div v-if="status === 'pending'" class="mt-4 text-gray-500 text-sm">Waiting for signature…</div>
       <div v-else-if="status === 'signed'" class="mt-4 text-green-700 font-medium">Signed — anchoring on the ledger…</div>

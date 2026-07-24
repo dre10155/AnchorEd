@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen pt-20">
-    <section class="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section class="relative py-12 sm:py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       <div class="absolute inset-0 bg-gradient-to-br from-brand-black via-gray-900 to-brand-black"></div>
 
       <div class="absolute inset-0">
@@ -9,14 +9,14 @@
       </div>
 
       <div class="max-w-4xl mx-auto relative z-10">
-        <div class="text-center mb-12">
+        <div class="text-center mb-8 sm:mb-12">
           <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">Revoke a Credential</h1>
           <p class="text-xl text-gray-300 max-w-2xl mx-auto">
             Burn a diploma NFT so verifiers see it as revoked — for rescinded degrees
           </p>
         </div>
 
-        <div class="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
+        <div class="bg-white rounded-xl shadow-xl p-5 sm:p-8 border border-gray-200">
           <div>
             <label class="block font-medium text-brand-black mb-2">Issuer Account</label>
             <input v-model="issuerAccount" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" placeholder="r..." />
@@ -94,7 +94,7 @@
 
     <!-- Confirmation dialog -->
     <div v-if="pending" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full">
+      <div class="bg-white p-5 sm:p-6 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <h3 class="text-xl font-bold text-brand-black mb-3">
           {{ pending.kind === 'burn' ? 'Burn this anchor?' : 'Revoke this credential?' }}
         </h3>
@@ -112,7 +112,7 @@
         <div class="text-xs font-mono bg-gray-100 p-3 rounded-lg break-all mb-4">{{ pending.target }}</div>
         <label class="block font-medium text-brand-black text-sm mb-2">Reason (required, kept off-chain)</label>
         <textarea v-model="revokeReason" rows="2" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all" placeholder="e.g. Degree rescinded following academic misconduct finding"></textarea>
-        <div class="flex gap-3 mt-5">
+        <div class="flex flex-col-reverse sm:flex-row gap-3 mt-5">
           <button @click="pending = null" class="flex-1 px-6 py-3 bg-gray-100 text-brand-black rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium">
             Cancel
           </button>

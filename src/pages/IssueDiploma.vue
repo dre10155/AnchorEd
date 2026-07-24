@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen pt-20">
-    <section class="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section class="relative py-12 sm:py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       <div class="absolute inset-0 bg-gradient-to-br from-brand-black via-gray-900 to-brand-black"></div>
 
       <div class="absolute inset-0">
@@ -9,7 +9,7 @@
       </div>
 
       <div class="max-w-4xl mx-auto relative z-10">
-        <div class="text-center mb-12">
+        <div class="text-center mb-8 sm:mb-12">
           <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">Issue Credentials</h1>
           <p class="text-xl text-gray-300 max-w-2xl mx-auto">
             Anchor verifiable diploma credentials on the XRP Ledger
@@ -27,7 +27,7 @@
             Batch Mint
           </button>
         </div>
-        <div v-if="mintMode === 'single'" class="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
+        <div v-if="mintMode === 'single'" class="bg-white rounded-xl shadow-xl p-5 sm:p-8 border border-gray-200">
           <form @submit.prevent="handleSubmit" class="space-y-6">
             <div>
               <label class="block font-medium text-brand-black mb-2">Student Name</label>
@@ -91,7 +91,7 @@
             </div>
           </div>
         </div>
-        <div v-if="mintMode === 'batch'" class="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
+        <div v-if="mintMode === 'batch'" class="bg-white rounded-xl shadow-xl p-5 sm:p-8 border border-gray-200">
           <div class="space-y-6 mb-8 pb-8 border-b border-gray-200">
             <div>
               <label class="block font-medium text-brand-black text-sm mb-2">Issuer Account</label>
@@ -104,7 +104,7 @@
           </div>
           <BatchIssuer :issuer-account="issuerAccount.trim()" :issuer-domain="issuerDomain.trim() || undefined" />
         </div>
-        <div v-if="issuerAccount && nftCount !== null" class="mt-12 bg-white rounded-xl shadow-xl p-8 border border-gray-200">
+        <div v-if="issuerAccount && nftCount !== null" class="mt-12 bg-white rounded-xl shadow-xl p-5 sm:p-8 border border-gray-200">
           <h2 class="text-2xl font-bold text-brand-black mb-4">Diplomas Minted by Institution</h2>
           <div class="mb-6 text-gray-700">
             Total Diplomas Minted: <span class="font-bold text-primary-blue text-xl">{{ nftCount }}</span>

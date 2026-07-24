@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen pt-20">
-    <section class="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section class="relative py-12 sm:py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       <div class="absolute inset-0 bg-gradient-to-br from-brand-black via-gray-900 to-brand-black"></div>
 
       <div class="absolute inset-0">
@@ -9,14 +9,14 @@
       </div>
 
       <div class="max-w-4xl mx-auto relative z-10">
-        <div class="text-center mb-12">
+        <div class="text-center mb-8 sm:mb-12">
           <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">Verify a Diploma</h1>
           <p class="text-xl text-gray-300 max-w-2xl mx-auto">
             Check any AnchorEd credential against the XRP Ledger
           </p>
         </div>
 
-        <div class="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
+        <div class="bg-white rounded-xl shadow-xl p-5 sm:p-8 border border-gray-200">
           <form @submit.prevent="handleVerify" class="space-y-6">
             <div>
               <label class="block font-medium text-brand-black mb-2">Issuer Account</label>
@@ -26,7 +26,7 @@
               <label class="block font-medium text-brand-black mb-2">Upload VC File</label>
               <input type="file" @change="handleFileUpload" class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-blue file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-all file:duration-200" accept=".json" />
             </div>
-            <div class="flex gap-4">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button type="button" @click="showQrScanner = true" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-lg">
                 Scan QR Code
               </button>
@@ -45,13 +45,13 @@
             <p class="text-red-700 font-medium">{{ error }}</p>
           </div>
 
-          <div v-if="resultState !== null" class="mt-6 p-6 rounded-lg border-2"
+          <div v-if="resultState !== null" class="mt-6 p-4 sm:p-6 rounded-lg border-2"
             :class="{
               'bg-green-50 border-green-200': resultState === 'verified',
               'bg-amber-50 border-amber-300': resultState === 'anchored' || resultState === 'revoked',
               'bg-red-50 border-red-200': resultState === 'invalid',
             }">
-            <div class="font-bold text-xl mb-3"
+            <div class="font-bold text-lg sm:text-xl mb-3 break-words"
               :class="{
                 'text-green-700': resultState === 'verified',
                 'text-amber-700': resultState === 'anchored' || resultState === 'revoked',
