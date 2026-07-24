@@ -26,6 +26,13 @@ export async function sha256Hex(str: string): Promise<string> {
   return bufferToHex(hashBuffer);
 }
 
+/** Per-credential random salt — keeps the on-ledger hash safe from dictionary attacks. */
+export function randomSalt(len = 16): string {
+  const arr = new Uint8Array(len);
+  globalThis.crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export async function credentialHash(credential: any, salt: string): Promise<string> {
   const canonical = JSON.stringify(canonicalize(credential));
   return await sha256Hex(salt + canonical);

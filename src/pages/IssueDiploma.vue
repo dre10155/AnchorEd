@@ -92,85 +92,17 @@
           </div>
         </div>
         <div v-if="mintMode === 'batch'" class="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
-          <div v-if="!devSeedMode" class="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm mb-6">
-            Batch minting requires <span class="font-mono">VITE_DEV_SEED_MODE=true</span> (testnet only) until
-            multi-signature Xaman batch signing is implemented. Each diploma otherwise needs its own individual
-            QR-signed mint — use Single Mint instead.
-          </div>
-          <template v-else>
-            <form @submit.prevent class="mb-8 space-y-6">
-              <div>
-                <label class="block font-medium text-brand-black text-sm mb-2">Issuer Account (dev only)</label>
-                <input v-model="issuerAccount" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="r..." />
-              </div>
-              <div>
-                <label class="block font-medium text-brand-black text-sm mb-2">Issuer Seed (dev only)</label>
-                <input v-model="issuerSeed" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="s..." />
-              </div>
-            </form>
-
-            <div class="border-t border-gray-200 pt-8">
-              <h2 class="text-2xl font-bold text-brand-black mb-6">Bulk Upload / Batch Issue</h2>
-              <div class="space-y-4">
-                <input
-                  type="file"
-                  accept=".csv,.json"
-                  @change="handleBulkFileChange"
-                  class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-blue file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-all file:duration-200"
-                />
-                <button
-                  @click="handleBulkSubmit"
-                  :disabled="bulkLoading || !bulkFile"
-                  class="w-full px-8 py-3 bg-primary-blue text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-lg shadow-blue-500/30 disabled:bg-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
-                >
-                  {{ bulkLoading ? 'Issuing in Batch...' : 'Bulk Issue Diplomas' }}
-                </button>
-              </div>
-
-              <div v-if="bulkError" class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p class="text-red-700 font-medium">{{ bulkError }}</p>
-              </div>
-
-              <div v-if="bulkResults.length" class="mt-8">
-                <h3 class="text-xl font-bold text-brand-black mb-4">Results:</h3>
-                <div class="overflow-x-auto rounded-lg border border-gray-200">
-                  <table class="w-full text-sm bg-white">
-                    <thead>
-                      <tr class="bg-gradient-to-r from-primary-blue to-blue-600 text-white">
-                        <th class="px-4 py-3 text-left font-semibold">#</th>
-                        <th class="px-4 py-3 text-left font-semibold">Student</th>
-                        <th class="px-4 py-3 text-left font-semibold">NFT ID</th>
-                        <th class="px-4 py-3 text-left font-semibold">Download</th>
-                        <th class="px-4 py-3 text-left font-semibold">QR</th>
-                        <th class="px-4 py-3 text-left font-semibold">Error</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="r in bulkResults" :key="r.index" class="border-t border-gray-200 hover:bg-gray-50 transition-colors">
-                        <td class="px-4 py-3">{{ r.index }}</td>
-                        <td class="px-4 py-3 font-medium text-gray-900">{{ r.studentName }}</td>
-                        <td class="px-4 py-3">
-                          <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{{ r.nftId }}</span>
-                        </td>
-                        <td class="px-4 py-3">
-                          <a v-if="r.downloadUrl" :href="r.downloadUrl" download="diploma-vc.json" class="text-primary-blue hover:text-blue-700 font-medium">
-                            Download
-                          </a>
-                        </td>
-                        <td class="px-4 py-3">
-                          <img v-if="r.qr" :src="r.qr" alt="QR" class="w-12 h-12 border-2 border-gray-200 rounded" />
-                          <div v-if="issuerAccount && r.qr" class="text-xs text-gray-600 mt-1">
-                            <span class="font-mono">{{ issuerAccount.substring(0, 8) }}...</span>
-                          </div>
-                        </td>
-                        <td class="px-4 py-3 text-red-600 text-xs">{{ r.error }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+          <div class="space-y-6 mb-8 pb-8 border-b border-gray-200">
+            <div>
+              <label class="block font-medium text-brand-black text-sm mb-2">Issuer Account</label>
+              <input v-model="issuerAccount" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" required placeholder="r..." />
             </div>
-          </template>
+            <div>
+              <label class="block font-medium text-brand-black text-sm mb-2">Institution Domain (optional, for did:web identity)</label>
+              <input v-model="issuerDomain" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all font-mono" placeholder="registrar.university.edu" />
+            </div>
+          </div>
+          <BatchIssuer :issuer-account="issuerAccount.trim()" :issuer-domain="issuerDomain.trim() || undefined" />
         </div>
         <div v-if="issuerAccount && nftCount !== null" class="mt-12 bg-white rounded-xl shadow-xl p-8 border border-gray-200">
           <h2 class="text-2xl font-bold text-brand-black mb-4">Diplomas Minted by Institution</h2>
@@ -222,13 +154,14 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { credentialHash, buildVC, makeIssuerDID } from '../lib/crypto'
+import { credentialHash, buildVC, makeIssuerDID, randomSalt } from '../lib/crypto'
 import { withXrpl, submitAndWait, resolveMintedNft, validateMintTx } from '../lib/xrplClient'
 import { makeDownloadUrlForVC, revokeObjectUrl, makeVerifierQR } from '../lib/vc'
 import { useXamanSign } from '../composables/useXamanSign'
 import { Client, Wallet, getNFTokenID, NFTokenMintFlags } from 'xrpl'
 import { Buffer } from 'buffer'
 import XamanSignModal from '../components/XamanSignModal.vue'
+import BatchIssuer from '../components/BatchIssuer.vue'
 
 // Local-seed signing is a testnet development convenience only. It is disabled
 // by default; production issuance signs via Xaman so seeds never touch the browser.
@@ -249,19 +182,6 @@ const downloadUrl = ref('')
 const qrUrl = ref('')
 const nftMintTime = ref('')
 
-interface BulkResult {
-  index: number
-  studentName: string
-  nftId?: string
-  downloadUrl?: string
-  qr?: string
-  error?: string
-}
-
-const bulkResults = ref<BulkResult[]>([])
-const bulkLoading = ref(false)
-const bulkError = ref('')
-const bulkFile = ref<File | null>(null)
 const mintMode = ref<'' | 'single' | 'batch'>('')
 const nftCount = ref<number | null>(null)
 
@@ -325,12 +245,6 @@ function validateIssuer() {
   return true
 }
 
-function randomSalt(len = 16) {
-  const arr = new Uint8Array(len)
-  window.crypto.getRandomValues(arr)
-  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
 async function handleSubmit() {
   error.value = ''
   success.value = false
@@ -383,75 +297,6 @@ async function handleSubmit() {
     error.value = e?.message || String(e)
   } finally {
     loading.value = false
-  }
-}
-
-function handleBulkFileChange(e: Event) {
-  const target = e.target as HTMLInputElement
-  bulkFile.value = target.files?.[0] || null
-}
-
-async function handleBulkSubmit() {
-  bulkError.value = ''
-  bulkResults.value = []
-  if (!bulkFile.value) {
-    bulkError.value = 'Please select a file.'
-    return
-  }
-  if (!validateIssuer()) return
-  bulkLoading.value = true
-  try {
-    const text = await bulkFile.value!.text()
-    let records: any[]
-    if (bulkFile.value!.name.endsWith('.json')) {
-      records = JSON.parse(text)
-    } else if (bulkFile.value!.name.endsWith('.csv')) {
-      const [header, ...rows] = text.trim().split(/\r?\n/)
-      const keys = header.split(',')
-      records = rows.map((row: string) => {
-        const vals = row.split(',')
-        return Object.fromEntries(keys.map((k: string, i: number) => [k.trim(), vals[i]?.trim()]))
-      })
-    } else {
-      bulkError.value = 'Unsupported file type. Use .csv or .json.'
-      bulkLoading.value = false
-      return
-    }
-    if (!Array.isArray(records) || !records.length) throw new Error('No records found.')
-    const results: BulkResult[] = []
-    for (const [i, rec] of records.entries()) {
-      try {
-        const issuer = makeIssuerDID(issuerAccount.value, issuerDomain.value)
-        const subject = { studentName: rec.studentName, university: rec.university, degree: rec.degree, year: rec.year }
-        const salt = randomSalt()
-        const vc = await buildVC({ issuer, subject, claim: {}, salt })
-        const hash = await credentialHash(vc, salt)
-        const wallet = Wallet.fromSeed(issuerSeed.value)
-        const tx = buildMintTx(vc, hash, issuerAccount.value)
-        validateMintTx(tx)
-        let nftId = ''
-        await withXrpl(async (client) => {
-          const result = await submitAndWait(client, wallet, tx)
-          nftId = getNFTokenID(result.result?.meta as any) || '(unknown)'
-        })
-        const downloadUrl = makeDownloadUrlForVC({ vc, salt })
-        const qr = await makeVerifierQR({ salt, hash, subject, issuerAccount: issuerAccount.value })
-        results.push({
-          index: i + 1,
-          studentName: rec.studentName,
-          nftId,
-          downloadUrl,
-          qr
-        })
-      } catch (e: any) {
-        results.push({ index: i + 1, studentName: rec.studentName, error: e?.message || String(e) })
-      }
-    }
-    bulkResults.value = results
-  } catch (e: any) {
-    bulkError.value = e?.message || String(e)
-  } finally {
-    bulkLoading.value = false
   }
 }
 
