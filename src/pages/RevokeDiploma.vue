@@ -57,29 +57,67 @@
             </table>
           </div>
           <div v-else-if="issuerAccount" class="mt-8 text-gray-500 text-center py-6">
-            No credentials found for this issuer wallet.
+            No anchor NFTs found for this issuer wallet.
+          </div>
+
+          <!-- Individual credential revocation (works for batch-issued credentials) -->
+          <div class="mt-10 pt-8 border-t border-gray-200">
+            <h2 class="text-xl font-bold text-brand-black mb-2">Revoke a single credential</h2>
+            <p class="text-sm text-gray-600 mb-4">
+              For batch-issued credentials, burning the anchor above would revoke the entire class.
+              Upload one graduate's credential file to revoke only theirs — this publishes a signed
+              revocation record for that credential's hash, leaving the rest of the batch valid.
+            </p>
+            <input
+              type="file"
+              accept=".json"
+              @change="handleCredentialUpload"
+              class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-blue file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-all file:duration-200"
+            />
+            <div v-if="credentialToRevoke" class="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <p class="text-sm text-gray-700 mb-1">
+                <span class="font-semibold">{{ credentialToRevoke.studentName }}</span> — {{ credentialToRevoke.degree }}
+              </p>
+              <p class="text-xs font-mono text-gray-500 break-all mb-3">{{ credentialToRevoke.hash }}</p>
+              <button
+                @click="askRevokeCredential"
+                :disabled="revoking || !issuerAccount"
+                class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Revoke this credential
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
     <!-- Confirmation dialog -->
-    <div v-if="confirmNftId" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div v-if="pending" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg w-full">
-        <h3 class="text-xl font-bold text-brand-black mb-3">Revoke this credential?</h3>
-        <p class="text-sm text-gray-600 mb-2">
-          This permanently burns the diploma NFT. Verifiers will see the credential as
-          <span class="font-semibold text-amber-700">REVOKED</span>. This cannot be undone.
+        <h3 class="text-xl font-bold text-brand-black mb-3">
+          {{ pending.kind === 'burn' ? 'Burn this anchor?' : 'Revoke this credential?' }}
+        </h3>
+        <p v-if="pending.kind === 'burn'" class="text-sm text-gray-600 mb-2">
+          This permanently burns the anchor NFT. Every credential anchored by it — the whole batch,
+          if this anchors one — will verify as <span class="font-semibold text-amber-700">REVOKED</span>.
+          This cannot be undone.
         </p>
-        <div class="text-xs font-mono bg-gray-100 p-3 rounded-lg break-all mb-4">{{ confirmNftId }}</div>
+        <p v-else class="text-sm text-gray-600 mb-2">
+          This publishes a signed revocation for
+          <span class="font-semibold">{{ pending.label }}</span>'s credential only. It will verify as
+          <span class="font-semibold text-amber-700">REVOKED</span>; the rest of the batch is unaffected.
+          This cannot be undone.
+        </p>
+        <div class="text-xs font-mono bg-gray-100 p-3 rounded-lg break-all mb-4">{{ pending.target }}</div>
         <label class="block font-medium text-brand-black text-sm mb-2">Reason (required, kept off-chain)</label>
         <textarea v-model="revokeReason" rows="2" class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-all" placeholder="e.g. Degree rescinded following academic misconduct finding"></textarea>
         <div class="flex gap-3 mt-5">
-          <button @click="confirmNftId = ''" class="flex-1 px-6 py-3 bg-gray-100 text-brand-black rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium">
+          <button @click="pending = null" class="flex-1 px-6 py-3 bg-gray-100 text-brand-black rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium">
             Cancel
           </button>
           <button @click="handleRevoke" :disabled="!revokeReason.trim() || revoking" class="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed">
-            {{ revoking ? 'Revoking…' : 'Revoke Credential' }}
+            {{ revoking ? 'Revoking…' : 'Confirm' }}
           </button>
         </div>
       </div>
@@ -102,6 +140,8 @@
 import { ref, watch } from 'vue'
 import { withXrpl, submitAndWait, waitForValidatedTx } from '../lib/xrplClient'
 import { useXamanSign } from '../composables/useXamanSign'
+import { buildRevocationTx } from '../lib/verify'
+import { credentialHash } from '../lib/crypto'
 import { Wallet } from 'xrpl'
 import XamanSignModal from '../components/XamanSignModal.vue'
 
@@ -114,8 +154,16 @@ const fetching = ref(false)
 const revoking = ref(false)
 const error = ref('')
 const revokedMsg = ref('')
-const confirmNftId = ref('')
 const revokeReason = ref('')
+
+/** Either burn an anchor NFT, or publish a revocation for one credential hash. */
+interface PendingRevocation {
+  kind: 'burn' | 'credential'
+  target: string
+  label?: string
+}
+const pending = ref<PendingRevocation | null>(null)
+const credentialToRevoke = ref<{ hash: string; studentName: string; degree: string } | null>(null)
 
 const { xaman, cancel: cancelXamanSign, close: closeXaman, signViaXaman } = useXamanSign()
 
@@ -139,21 +187,55 @@ async function fetchNfts() {
 function askRevoke(nftId: string) {
   revokedMsg.value = ''
   revokeReason.value = ''
-  confirmNftId.value = nftId
+  pending.value = { kind: 'burn', target: nftId }
+}
+
+function askRevokeCredential() {
+  if (!credentialToRevoke.value) return
+  revokedMsg.value = ''
+  revokeReason.value = ''
+  pending.value = {
+    kind: 'credential',
+    target: credentialToRevoke.value.hash,
+    label: credentialToRevoke.value.studentName,
+  }
+}
+
+async function handleCredentialUpload(e: Event) {
+  error.value = ''
+  revokedMsg.value = ''
+  credentialToRevoke.value = null
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  try {
+    const data = JSON.parse(await file.text())
+    const vc = data.vc || data
+    const salt = data.salt || vc.proof?.salt || ''
+    if (!salt) throw new Error('No salt found in this credential file.')
+    credentialToRevoke.value = {
+      hash: await credentialHash(vc, salt),
+      studentName: vc.credentialSubject?.studentName || 'Unknown graduate',
+      degree: vc.credentialSubject?.degree || '',
+    }
+  } catch (err: any) {
+    error.value = 'Could not read credential file: ' + (err?.message || String(err))
+  }
 }
 
 async function handleRevoke() {
-  const nftId = confirmNftId.value
-  confirmNftId.value = ''
+  const request = pending.value
+  if (!request) return
+  pending.value = null
   error.value = ''
   revokedMsg.value = ''
   revoking.value = true
   try {
-    const tx = {
-      TransactionType: 'NFTokenBurn',
-      Account: issuerAccount.value.trim(),
-      NFTokenID: nftId,
-    }
+    const account = issuerAccount.value.trim()
+    const tx =
+      request.kind === 'burn'
+        ? { TransactionType: 'NFTokenBurn', Account: account, NFTokenID: request.target }
+        : buildRevocationTx(account, request.target)
+
     if (devSeedMode) {
       const wallet = Wallet.fromSeed(issuerSeed.value)
       await withXrpl((client) => submitAndWait(client, wallet, tx))
@@ -162,7 +244,12 @@ async function handleRevoke() {
       await withXrpl((client) => waitForValidatedTx(client, txid))
       closeXaman()
     }
-    revokedMsg.value = `Credential revoked. NFT ${nftId} has been burned; verifiers will now see it as REVOKED.`
+
+    revokedMsg.value =
+      request.kind === 'burn'
+        ? `Anchor burned. Credentials anchored by NFT ${request.target} now verify as REVOKED.`
+        : `Revocation published for ${request.label}. Their credential now verifies as REVOKED; the rest of the batch is unaffected.`
+    credentialToRevoke.value = null
     await fetchNfts()
   } catch (e: any) {
     error.value = e?.message || String(e)

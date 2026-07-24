@@ -36,6 +36,11 @@
             </div>
           </form>
 
+          <p v-if="batch" class="mt-4 text-xs text-gray-500">
+            Batch-issued credential — checking its Merkle proof against the anchored class root.
+          </p>
+          <p v-if="progressNote" class="mt-4 text-sm text-gray-500">{{ progressNote }}</p>
+
           <div v-if="error" class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p class="text-red-700 font-medium">{{ error }}</p>
           </div>
@@ -88,9 +93,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { credentialHash } from '../lib/crypto'
+import { verifyMerkleProof } from '../lib/merkle'
+import { scanIssuerLedger, decodeHex } from '../lib/verify'
 import { checkDidListsAddress, decodeHexDomain } from '../lib/did'
-import { Client, getNFTokenID } from 'xrpl'
-import { Buffer } from 'buffer'
+import { Client } from 'xrpl'
 import { QrcodeStream } from 'qrcode-reader-vue3'
 
 const issuerAccount = ref('')
@@ -103,8 +109,10 @@ const issuerDomain = ref('')
 const vcFile = ref<File | null>(null)
 const salt = ref('')
 const hash = ref('')
+const batch = ref<{ root: string; proof: string[] } | null>(null)
 const showQrScanner = ref(false)
 const qrError = ref('')
+const progressNote = ref('')
 
 function cleanAccount(account: string) {
   if (!account) return ''
@@ -114,32 +122,35 @@ function cleanAccount(account: string) {
   return acc
 }
 
+/** Load a credential from either an uploaded file or a scanned QR payload. */
+async function loadCredential(data: any) {
+  const vc = data.vc || data
+  salt.value = data.salt || vc.proof?.salt || ''
+  hash.value = await credentialHash(vc, salt.value)
+  diplomaDetails.value = vc.credentialSubject || data.subject
+  batch.value = data.batch?.root && Array.isArray(data.batch.proof)
+    ? { root: data.batch.root, proof: data.batch.proof }
+    : null
+  if (!issuerAccount.value) {
+    issuerAccount.value = data.issuerAccount || data.batch?.issuerAccount || cleanAccount(vc.issuer)
+  }
+  resultState.value = null
+  resultReason.value = ''
+  error.value = ''
+}
+
 const handleFileUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
   vcFile.value = file
-  const reader = new FileReader()
-  reader.onload = async (e) => {
-    try {
-      const data = JSON.parse(e.target?.result as string)
-      const vc = data.vc || data
-      salt.value = data.salt || (vc.proof && vc.proof.salt) || ''
-      hash.value = await credentialHash(vc, salt.value)
-      diplomaDetails.value = vc.credentialSubject
-      if (!issuerAccount.value) {
-        issuerAccount.value = cleanAccount(vc.issuer)
-      }
-      resultState.value = null
-      resultReason.value = ''
-      error.value = ''
-    } catch (err: any) {
-      error.value = 'Invalid VC file: ' + err.message
-      resultState.value = null
-      resultReason.value = ''
-    }
+  try {
+    await loadCredential(JSON.parse(await file.text()))
+  } catch (err: any) {
+    error.value = 'Invalid VC file: ' + err.message
+    resultState.value = null
+    resultReason.value = ''
   }
-  reader.readAsText(file)
 }
 
 const handleVerify = async () => {
@@ -147,6 +158,7 @@ const handleVerify = async () => {
   error.value = ''
   resultState.value = null
   resultReason.value = ''
+  progressNote.value = ''
   const account = cleanAccount(issuerAccount.value)
   if (!account) {
     error.value = 'Issuer account is malformed. Please check the address.'
@@ -155,65 +167,75 @@ const handleVerify = async () => {
     loading.value = false
     return
   }
+
   let client
   try {
+    // 1. Batched credential: the membership proof is checked locally first —
+    // no point querying the ledger for a credential that isn't in its own batch.
+    if (batch.value) {
+      const inBatch = await verifyMerkleProof(hash.value, batch.value.proof, batch.value.root)
+      if (!inBatch) {
+        resultState.value = 'invalid'
+        resultReason.value = 'This credential is not a member of the batch it claims — the Merkle proof does not reproduce the batch root.'
+        return
+      }
+    }
+
     client = new Client('wss://s.altnet.rippletest.net:51233')
     await client.connect()
-    const response = await client.request({
-      command: 'account_nfts',
-      account,
-    })
-    const nfts = (response && response.result && Array.isArray(response.result.account_nfts)) ? response.result.account_nfts : []
-    const txsResp = await client.request({
-      command: 'account_tx',
-      account,
-      limit: 100
-    })
-    const txs = txsResp.result && Array.isArray(txsResp.result.transactions) ? txsResp.result.transactions : []
 
-    // 1. Find the mint transaction whose memo carries this credential's anchor hash
-    let matchedNftId = ''
-    let mintDate = ''
-    for (const txObj of txs) {
-      const tx = txObj.tx || (txObj as any).tx_json
-      if (!tx || tx.TransactionType !== 'NFTokenMint' || !Array.isArray(tx.Memos)) continue
-      for (const memoObj of tx.Memos) {
-        try {
-          const memo = JSON.parse(Buffer.from(memoObj.Memo.MemoData, 'hex').toString())
-          if (memo.hash === hash.value) {
-            matchedNftId = getNFTokenID(txObj.meta as any) || ''
-            mintDate = (txObj as any).close_time_iso || ''
-            break
-          }
-        } catch {}
-      }
-      if (matchedNftId) break
-    }
+    // 2. One paginated pass over the issuer's history finds the anchor and any revocation
+    const scan = await scanIssuerLedger(
+      client,
+      account,
+      { hash: hash.value, batchRoot: batch.value?.root },
+      { onProgress: (n) => { progressNote.value = `Scanned ${n} issuer transactions…` } }
+    )
+    progressNote.value = ''
 
-    if (!matchedNftId) {
+    if (!scan.anchor) {
       resultState.value = 'invalid'
-      resultReason.value = 'No NFT memo found with this anchor hash.'
+      resultReason.value = scan.truncated
+        ? `No anchor found in the issuer's most recent ${scan.scannedTx} transactions. This issuer's history is longer than the scan limit.`
+        : batch.value
+          ? 'This issuer never anchored the batch this credential claims to belong to.'
+          : 'No NFT anchor found for this credential.'
       return
     }
 
-    // 2. Check whether the matched NFT still exists — burned by the issuer means revoked
-    const liveNft = nfts.find((n: any) => n.NFTokenID === matchedNftId)
-    if (!liveNft) {
+    const issuedOn = scan.anchor.mintDate ? ` on ${new Date(scan.anchor.mintDate).toLocaleDateString()}` : ''
+
+    // 3. Revoked explicitly by the issuer?
+    if (scan.revoked) {
       resultState.value = 'revoked'
-      resultReason.value = `This diploma was issued${mintDate ? ` on ${new Date(mintDate).toLocaleDateString()}` : ''} but has since been REVOKED by the issuer. NFT ID: ${matchedNftId}`
+      resultReason.value = `This credential was issued${issuedOn} but has since been REVOKED by the issuer${scan.revokedAt ? ` on ${new Date(scan.revokedAt).toLocaleDateString()}` : ''}.`
       return
     }
 
-    // 3. Second binding: NFTs minted with the hash-anchor URI format must carry
-    // the same hash there too (legacy URIs pass on memo alone)
-    const uriStr = liveNft.URI ? Buffer.from(liveNft.URI, 'hex').toString() : ''
-    if (uriStr.startsWith('vc:sha256:') && uriStr !== `vc:sha256:${hash.value}`) {
-      resultState.value = 'invalid'
-      resultReason.value = 'On-ledger URI anchor does not match this credential.'
+    // 4. Or revoked by burning the anchor NFT
+    const nftsResp = await client.request({ command: 'account_nfts', account })
+    const nfts: any[] = Array.isArray((nftsResp.result as any)?.account_nfts) ? (nftsResp.result as any).account_nfts : []
+    const liveNft = scan.anchor.nftId ? nfts.find((n) => n.NFTokenID === scan.anchor!.nftId) : undefined
+    if (scan.anchor.nftId && !liveNft) {
+      resultState.value = 'revoked'
+      resultReason.value = batch.value
+        ? `The batch anchoring this credential was issued${issuedOn} but has since been burned by the issuer — the whole batch is REVOKED.`
+        : `This diploma was issued${issuedOn} but has since been REVOKED by the issuer. NFT ID: ${scan.anchor.nftId}`
       return
     }
 
-    // 4. Issuer identity — two-way did:web handshake:
+    // 5. Second on-chain binding: the NFT's URI must agree with the anchor
+    if (liveNft) {
+      const uri = decodeHex(liveNft.URI)
+      const expected = batch.value ? `vc:merkle:${batch.value.root}` : `vc:sha256:${hash.value}`
+      if ((uri.startsWith('vc:sha256:') || uri.startsWith('vc:merkle:')) && uri !== expected) {
+        resultState.value = 'invalid'
+        resultReason.value = 'On-ledger URI anchor does not match this credential.'
+        return
+      }
+    }
+
+    // 6. Issuer identity — two-way did:web handshake:
     //    wallet → domain (on-ledger Domain field) and domain → wallet (did.json)
     let identityVerified = false
     issuerDomain.value = ''
@@ -227,21 +249,26 @@ const handleVerify = async () => {
       }
     } catch {}
 
+    const provenance = batch.value
+      ? `Proven member of a batch of credentials anchored${issuedOn}.`
+      : `Anchored${issuedOn}.`
+
     if (identityVerified) {
       resultState.value = 'verified'
-      resultReason.value = `Authentic credential issued by ${issuerDomain.value} — institution identity confirmed via did:web handshake. NFT ID: ${matchedNftId}`
+      resultReason.value = `Authentic credential issued by ${issuerDomain.value} — institution identity confirmed via did:web handshake. ${provenance}`
     } else {
       resultState.value = 'anchored'
       resultReason.value = issuerDomain.value
-        ? `Hash is anchored on XRPL (NFT ID: ${matchedNftId}), but ${issuerDomain.value} did not confirm this wallet in its did.json — issuer identity UNVERIFIED.`
-        : `Hash is anchored on XRPL (NFT ID: ${matchedNftId}), but the issuer wallet has no domain set — issuer identity UNVERIFIED. Anyone can create a wallet; treat with caution.`
+        ? `${provenance} But ${issuerDomain.value} did not confirm this wallet in its did.json — issuer identity UNVERIFIED.`
+        : `${provenance} But the issuer wallet has no domain set — issuer identity UNVERIFIED. Anyone can create a wallet; treat with caution.`
     }
   } catch (err: any) {
-    error.value = 'Error verifying NFT: ' + err.message
+    error.value = 'Error verifying credential: ' + err.message
     resultState.value = 'invalid'
     resultReason.value = 'Verification failed due to an error.'
   } finally {
     loading.value = false
+    progressNote.value = ''
     if (client?.isConnected()) await client.disconnect()
   }
 }
@@ -249,15 +276,7 @@ const handleVerify = async () => {
 const onDecode = async (result: string) => {
   try {
     const data = JSON.parse(result)
-    const vc = data.vc || data
-    salt.value = data.salt || (vc.proof && vc.proof.salt) || ''
-    hash.value = data.hash || (vc.proof && vc.proof.hash) || ''
-    diplomaDetails.value = vc.credentialSubject || data.subject
-    if (!issuerAccount.value) {
-      issuerAccount.value = data.issuerAccount || cleanAccount(vc.issuer)
-    }
-    resultState.value = null
-    resultReason.value = ''
+    await loadCredential(data)
     showQrScanner.value = false
     vcFile.value = new File([JSON.stringify(data)], 'scanned-vc.json', { type: 'application/json' })
     await handleVerify()
