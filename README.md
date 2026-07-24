@@ -51,8 +51,8 @@ Create and fund a testnet issuer wallet at the [XRPL faucet](https://xrpl.org/re
 - [x] Hash-only NFT URIs (zero PII on-chain, FERPA-aligned)
 - [x] Soulbound (non-transferable) diploma NFTs + issuer revocation
 - [x] `did:web` issuer identity — cryptographically bind XRPL addresses to institution domains
-- [ ] Verifier pagination + indexer for high-volume issuers
-- [ ] Merkle-batch anchoring for graduating classes
+- [x] Verifier pagination for high-volume issuers
+- [x] Merkle-batch anchoring for graduating classes — one signature per class, zero custody
 - [ ] Verification API for ATS / licensing-board integration
 
 ## Institution onboarding (did:web identity)

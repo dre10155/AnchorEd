@@ -1,6 +1,6 @@
 # AnchorEd — Project Overview & Progress
 
-> Last updated: July 18, 2026
+> Last updated: July 24, 2026
 
 **Live app:** https://anchor-ed.vercel.app · **Repo:** https://github.com/dre10155/AnchorEd
 
@@ -112,18 +112,34 @@ demo issuer wallet.
 Live at **anchor-ed.vercel.app** with Xaman signing keys in Vercel env vars.
 API + SPA routing + payload creation smoke-tested against production.
 
-### ⏳ Phase 5 — Scale: batch minting + verifier robustness (next)
-- **Authorized-minter batch flow:** the institution signs *one* Xaman transaction
-  (`AccountSet` → `NFTokenMinter`) delegating mint authority to AnchorEd's service
-  wallet; the server then mints a whole graduating class (CSV upload) with
-  `Issuer: <institution>` stamped on-chain — revocable delegation, no per-diploma QR
-  scans. XLS-56 Batch packs up to 8 mints per transaction.
-- Verifier pagination (currently caps at the issuer's last 100 transactions)
-- Proper CSV parsing (quoted fields), per-row progress, single shared connection
+### ✅ Phase 5 — Scale: batch issuance + verifier robustness (done)
+**Merkle batch anchoring, zero custody.** A roster of any size is hashed into one
+Merkle tree and anchored by a *single* signed transaction carrying only the root. Each
+graduate receives a credential plus a log2(n) membership proof, packaged with QR codes
+and a manifest into a downloadable ZIP. A 5,000-student class costs one transaction
+instead of 5,000, and AnchorEd never holds a key or mints on anyone's behalf.
 
-### ⏳ Phase 6 — Hardening (pending)
-Explicit Testnet/Mainnet toggle · Vitest unit tests (canonicalization, hashing, verifier
-states) · GitHub Actions CI
+The alternative considered — delegating mint authority to an AnchorEd service wallet —
+was rejected: a hot key with standing authority to issue credentials for every customer
+is exactly the wrong failure mode for an anti-fraud product.
+
+Also in this phase:
+- Verification checks the Merkle proof locally first, rejecting forgeries without a
+  ledger query, then matches the batch root against the issuer's anchor
+- Paginated ledger scans (the old 100-transaction limit silently failed to verify valid
+  credentials from busy issuers)
+- Credential-level revocation via signed revocation memos, so one graduate can be
+  revoked without invalidating their whole class
+- Roster parsing via papaparse — quoted fields, header aliases, and row-level
+  validation errors surfaced before anything is anchored
+
+**Test suite: 50 tests.** The Merkle tests caught a second-preimage vulnerability during
+development (an internal node could be replayed as a leaf with a truncated proof);
+leaves and internal nodes now use separate domain prefixes, with a regression test.
+
+### ⏳ Phase 6 — Hardening (next)
+Explicit Testnet/Mainnet toggle · GitHub Actions CI · extend the test suite to
+canonicalization and hashing (Merkle, batch and verifier logic are already covered)
 
 ### Mainnet gate
 Flip to mainnet when: Phase 5–6 land **and** the first pilot institution is ready to
@@ -154,6 +170,7 @@ in seconds).
 
 ## 5. Current status in one line
 
-**Four of six engineering phases complete, live in production on XRPL Testnet with
-wallet-signed issuance, revocation, and institutional identity — next: batch issuance at
-scale (Phase 5), then hardening (Phase 6) and mainnet with the first pilot.**
+**Five of six engineering phases complete, live in production on XRPL Testnet with
+wallet-signed issuance, institutional identity, credential-level revocation, and
+zero-custody batch issuance that anchors an entire graduating class in one signature —
+next: hardening (Phase 6), then mainnet with the first pilot.**
