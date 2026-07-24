@@ -21,7 +21,8 @@ function bufferToHex(buffer: ArrayBuffer): string {
 export async function sha256Hex(str: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(str);
-  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  // globalThis (not window) so hashing also runs under Node in the test suite
+  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data);
   return bufferToHex(hashBuffer);
 }
 
